@@ -17,7 +17,7 @@ void main() async {
   // final apiKey = dotenv.env['GEMINI_API_KEY']!;
   const apiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
-    defaultValue: 'your api key',
+    defaultValue: 'AIzaSyBevpwF3vygRVKPum3xop3VpPXCE7lWdjc',
   );
   await Hive.initFlutter();
   await Hive.openBox<String>('offline_chats');
