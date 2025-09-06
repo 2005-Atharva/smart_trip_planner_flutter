@@ -1,0 +1,413 @@
+// lib/src/features/home/home_screen.dart  (only the changed parts)
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:smart_trip_planner_flutter/src/core/device/device.dart';
+import 'package:smart_trip_planner_flutter/src/features/home/bloc/chat_bloc.dart';
+import 'package:smart_trip_planner_flutter/src/features/home/models/itinerary_models.dart';
+import 'package:smart_trip_planner_flutter/src/features/chat/widgets/chat_msg.dart';
+
+class ChatScreen extends StatefulWidget {
+  final TextEditingController userInputtext;
+  const ChatScreen({super.key, required this.userInputtext});
+  @override
+  State<ChatScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<ChatScreen> {
+  bool text = false;
+
+  final TextEditingController _userQuery = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    context.read<ChatBloc>().add(
+      ChatButtonPressed(userMessage: widget.userInputtext.text.trim()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MyDevices.getScreenHeight(context);
+    final width = MyDevices.getScreenWidth(context);
+
+    return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 245, 245, 247),
+      appBar: AppBar(
+        backgroundColor: const Color.fromARGB(255, 245, 245, 247),
+        title: Text(
+          'Chat',
+          style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700),
+        ),
+
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 22),
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  color: const Color.fromARGB(255, 6, 95, 70),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'S',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    color: const Color.fromARGB(255, 255, 255, 255),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: BlocBuilder<ChatBloc, ChatState>(
+        builder: (context, state) {
+          final bool loading = state is ChatLoadingState;
+          final List<ChatMessage> messages = switch (state) {
+            ChatSuccessState s => s.messagesDetail,
+            ChatInitial s => s.message,
+            _ => const [],
+          };
+          if (state is ChatLoadingState) {
+            Container(height: 100, color: Colors.red);
+            CircularProgressIndicator();
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(height: height * 0.02),
+
+              if (loading)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    height: 300,
+                    width: double.maxFinite,
+                    alignment: Alignment.center,
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(blurRadius: 6, color: Colors.black12),
+                      ],
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            color: const Color.fromARGB(255, 6, 95, 70),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Crating a perfect plan for you...',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  itemCount: messages.length,
+                  itemBuilder: (_, i) {
+                    final m = messages[i];
+                    switch (m.sender) {
+                      case Sender.user:
+                        return UserBubble(text: m.text);
+                      case Sender.ai:
+                        // When payload is Itinerary, show a compact card; else plain text.
+                        if (m.payload is Itinerary) {
+                          final iti = m.payload as Itinerary;
+                          return AiItineraryCard(iti: iti);
+                        }
+                        return _AiBubble(text: m.text);
+                      case Sender.error:
+                        return _ErrorBubble(text: m.text);
+                    }
+                  },
+                ),
+              ),
+
+              // Input
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _userQuery,
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 16),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          isDense: true,
+                          border: InputBorder.none,
+                          hintText: "Follow up to refine",
+                          hintStyle: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: const Color.fromARGB(255, 8, 23, 53),
+                          ),
+
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: BorderSide(
+                              color: Colors.teal, // green border color
+                              width: 1.5,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: BorderSide(
+                              color: Colors.teal, // green border color
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        final prompt = _userQuery.text.trim();
+                        context.read<ChatBloc>().add(
+                          ChatButtonPressed(userMessage: prompt),
+                        );
+                        _userQuery.clear();
+                      },
+                      child: Container(
+                        height: 50,
+                        width: 50,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          color: const Color.fromARGB(255, 6, 95, 70),
+                        ),
+                        alignment: Alignment.center,
+                        child: loading
+                            ? CircularProgressIndicator(color: Colors.white)
+                            : Icon(Icons.send_outlined, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Simple bubbles/cards
+class UserBubble extends StatelessWidget {
+  final String text;
+  const UserBubble({required this.text});
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.center,
+    child: Container(
+      width: double.maxFinite,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(blurRadius: 6, color: Colors.black12)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Container(
+                height: 30,
+                width: 30,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  color: const Color.fromARGB(255, 6, 95, 70),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'S',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    color: const Color.fromARGB(255, 255, 255, 255),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'You',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+            child: Text(
+              text,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _AiBubble extends StatelessWidget {
+  final String text;
+  const _AiBubble({required this.text});
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.center,
+    child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500),
+      ),
+    ),
+  );
+}
+
+class _ErrorBubble extends StatelessWidget {
+  final String text;
+  const _ErrorBubble({required this.text});
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.center,
+    child: Text(text, style: const TextStyle(color: Colors.red)),
+  );
+}
+
+class AiItineraryCard extends StatelessWidget {
+  final Itinerary iti;
+  const AiItineraryCard({required this.iti});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [BoxShadow(blurRadius: 8, color: Colors.black12)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Container(
+                  height: 30,
+                  width: 30,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    color: const Color.fromARGB(255, 255, 200, 0),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.chat_bubble, size: 16, color: Colors.white),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Itinera AI',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Text(
+              iti.title,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${iti.startDate} — ${iti.endDate}',
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 12),
+
+            // All days
+            ListView.separated(
+              shrinkWrap: true,
+              primary: false,
+              itemCount: iti.days.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, d) {
+                final day = iti.days[d];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Day ${d + 1}: ${day.summary}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 6),
+                    // All items per day
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: day.items
+                          .map(
+                            (i) => Text(
+                              '• ${i.time}  ${i.activity}  (${i.location})',
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
