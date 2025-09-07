@@ -7,7 +7,7 @@ Supports real-time refinement, offline storage, and web search integration for u
 ---
 
 # 🎥 Demo
-
+https://www.loom.com/share/d3809d7100d34e81b7d8733fff6284cf?sid=c49a97ed-ea7d-4ecb-9668-3d20e3b6951f
 ---
 
 
