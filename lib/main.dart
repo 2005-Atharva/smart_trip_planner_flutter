@@ -7,6 +7,7 @@ import 'package:smart_trip_planner_flutter/app.dart';
 import 'package:smart_trip_planner_flutter/firebase_options.dart';
 import 'package:smart_trip_planner_flutter/src/features/auth/bloc/auth_bloc.dart';
 import 'package:smart_trip_planner_flutter/src/features/auth/bloc/obscuretext_bloc.dart';
+import 'package:smart_trip_planner_flutter/src/features/hive/data/offline_chats_repository.dart';
 import 'package:smart_trip_planner_flutter/src/features/home/bloc/chat_bloc.dart';
 import 'package:smart_trip_planner_flutter/src/features/home/services/gemini_service.dart';
 
@@ -17,7 +18,7 @@ void main() async {
   // final apiKey = dotenv.env['GEMINI_API_KEY']!;
   const apiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
-    defaultValue: 'AIzaSyBevpwF3vygRVKPum3xop3VpPXCE7lWdjc',
+    defaultValue: 'your api key',
   );
   await Hive.initFlutter();
   await Hive.openBox<String>('offline_chats');
@@ -28,7 +29,10 @@ void main() async {
         BlocProvider(create: (context) => AuthBloc()),
 
         BlocProvider(
-          create: (context) => ChatBloc(GeminiService(apiKey: apiKey)),
+          create: (context) => ChatBloc(
+            GeminiService(apiKey: apiKey),
+            OfflineChatsRepository(Hive.box<String>('offline_chats')),
+          ),
         ),
       ],
       child: const MyApp(),

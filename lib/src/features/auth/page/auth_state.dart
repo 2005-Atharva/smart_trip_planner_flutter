@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:smart_trip_planner_flutter/src/features/auth/page/login_screen.dart';
 import 'package:smart_trip_planner_flutter/src/features/home/pages/home_screeen.dart';
-import 'package:smart_trip_planner_flutter/src/features/chat/pages/chat_screen.dart';
 
 class AuthStateChecker extends StatefulWidget {
   const AuthStateChecker({super.key});

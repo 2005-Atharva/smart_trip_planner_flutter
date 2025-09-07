@@ -1,11 +1,15 @@
-// lib/src/features/home/home_screen.dart  (only the changed parts)
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_trip_planner_flutter/src/core/device/device.dart';
+import 'package:smart_trip_planner_flutter/src/features/chat/widgets/Aitinerary_card.dart';
+import 'package:smart_trip_planner_flutter/src/features/chat/widgets/chat_bubbles.dart';
+import 'package:smart_trip_planner_flutter/src/features/chat/widgets/error_bubble.dart';
 import 'package:smart_trip_planner_flutter/src/features/home/bloc/chat_bloc.dart';
 import 'package:smart_trip_planner_flutter/src/features/home/models/itinerary_models.dart';
 import 'package:smart_trip_planner_flutter/src/features/chat/widgets/chat_msg.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class ChatScreen extends StatefulWidget {
   final TextEditingController userInputtext;
@@ -16,6 +20,9 @@ class ChatScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<ChatScreen> {
   bool text = false;
+  late stt.SpeechToText _speech;
+  bool _speechEnabled = false;
+  bool _isListening = false;
 
   final TextEditingController _userQuery = TextEditingController();
   @override
@@ -24,12 +31,65 @@ class _HomeScreenState extends State<ChatScreen> {
     context.read<ChatBloc>().add(
       ChatButtonPressed(userMessage: widget.userInputtext.text.trim()),
     );
+    _initSpeech();
+  }
+
+  Future<bool> _checkMicPermission() async {
+    var status = await Permission.microphone.status;
+    if (status.isDenied) {
+      status = await Permission.microphone.request();
+    }
+    return status.isGranted;
+  }
+
+  Future<void> _initSpeech() async {
+    _speech = stt.SpeechToText();
+    _speechEnabled = await _speech.initialize(
+      onStatus: (status) {
+        // when user stops talking automatically
+        if (status == "done") {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (error) {
+        debugPrint("Speech error: $error");
+      },
+    );
+    setState(() {});
+  }
+
+  void _toggleListening() async {
+    if (!_speechEnabled) return;
+
+    bool granted = await _checkMicPermission();
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Microphone permission required")),
+      );
+      return;
+    }
+
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+    } else {
+      await _speech.listen(
+        onResult: (result) {
+          setState(() {
+            _userQuery.text = result.recognizedWords;
+          });
+        },
+        // ignore: deprecated_member_use
+        listenMode: stt.ListenMode.dictation,
+        localeId: "en_US",
+      );
+      setState(() => _isListening = true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final height = MyDevices.getScreenHeight(context);
-    final width = MyDevices.getScreenWidth(context);
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 245, 245, 247),
@@ -140,9 +200,9 @@ class _HomeScreenState extends State<ChatScreen> {
                           final iti = m.payload as Itinerary;
                           return AiItineraryCard(iti: iti);
                         }
-                        return _AiBubble(text: m.text);
+                        return AiBubble(text: m.text);
                       case Sender.error:
-                        return _ErrorBubble(text: m.text);
+                        return ErrorBubble(text: m.text);
                     }
                   },
                 ),
@@ -176,16 +236,34 @@ class _HomeScreenState extends State<ChatScreen> {
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(22),
                             borderSide: BorderSide(
-                              color: Colors.teal, // green border color
+                              color: Color.fromARGB(
+                                255,
+                                6,
+                                95,
+                                70,
+                              ), // green border color
                               width: 1.5,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(22),
                             borderSide: BorderSide(
-                              color: Colors.teal, // green border color
+                              color: Color.fromARGB(
+                                255,
+                                6,
+                                95,
+                                70,
+                              ), // green border color
                               width: 1.5,
                             ),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: const Icon(
+                              Icons.mic,
+                              color: Color.fromARGB(255, 6, 95, 70),
+                              size: 22,
+                            ),
+                            onPressed: _toggleListening,
                           ),
                         ),
                       ),
@@ -209,7 +287,7 @@ class _HomeScreenState extends State<ChatScreen> {
                         alignment: Alignment.center,
                         child: loading
                             ? CircularProgressIndicator(color: Colors.white)
-                            : Icon(Icons.send_outlined, color: Colors.white),
+                            : Image.asset('assets/icons/Send.png', scale: 1),
                       ),
                     ),
                   ],
@@ -219,194 +297,6 @@ class _HomeScreenState extends State<ChatScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-// Simple bubbles/cards
-class UserBubble extends StatelessWidget {
-  final String text;
-  const UserBubble({required this.text});
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.center,
-    child: Container(
-      width: double.maxFinite,
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [BoxShadow(blurRadius: 6, color: Colors.black12)],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Container(
-                height: 30,
-                width: 30,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  color: const Color.fromARGB(255, 6, 95, 70),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'S',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    color: const Color.fromARGB(255, 255, 255, 255),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              SizedBox(width: 12),
-              Text(
-                'You',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-            child: Text(
-              text,
-              style: GoogleFonts.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _AiBubble extends StatelessWidget {
-  final String text;
-  const _AiBubble({required this.text});
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.center,
-    child: Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F9),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500),
-      ),
-    ),
-  );
-}
-
-class _ErrorBubble extends StatelessWidget {
-  final String text;
-  const _ErrorBubble({required this.text});
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.center,
-    child: Text(text, style: const TextStyle(color: Colors.red)),
-  );
-}
-
-class AiItineraryCard extends StatelessWidget {
-  final Itinerary iti;
-  const AiItineraryCard({required this.iti});
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(blurRadius: 8, color: Colors.black12)],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Container(
-                  height: 30,
-                  width: 30,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(30),
-                    color: const Color.fromARGB(255, 255, 200, 0),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.chat_bubble, size: 16, color: Colors.white),
-                ),
-                SizedBox(width: 12),
-                Text(
-                  'Itinera AI',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              iti.title,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${iti.startDate} — ${iti.endDate}',
-              style: const TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-
-            // All days
-            ListView.separated(
-              shrinkWrap: true,
-              primary: false,
-              itemCount: iti.days.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, d) {
-                final day = iti.days[d];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Day ${d + 1}: ${day.summary}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 6),
-                    // All items per day
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: day.items
-                          .map(
-                            (i) => Text(
-                              '• ${i.time}  ${i.activity}  (${i.location})',
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

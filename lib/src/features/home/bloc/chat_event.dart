@@ -8,3 +8,5 @@ final class ChatButtonPressed extends ChatEvent {
 
   ChatButtonPressed({required this.userMessage});
 }
+
+final class SaveOfflinePressed extends ChatEvent {}
